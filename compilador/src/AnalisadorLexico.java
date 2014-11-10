@@ -1,7 +1,9 @@
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Formatter;
 import java.util.List;
 import com.trolltech.qt.gui.*;
 
@@ -33,7 +35,20 @@ public class AnalisadorLexico {
     private String line;
     private static int i = 0;
     private static Token t;
-    private BufferedReader reader;
+    BufferedReader reader;
+    public Formatter saida;
+    String print = "\\documentclass[a4paper]{article}\n" +
+            "\\usepackage[T1]{fontenc}\n" +
+            "\\usepackage[utf8]{inputenc}\n" +
+            "\\usepackage{lmodern}\n" +
+            "\\usepackage{tikz}\n" +
+            "\\usepackage{tikz-qtree}\n" +
+            "\\usepackage[brazilian,portuguese]{babel}\n" +
+            "\\usepackage{geometry}\n" +
+            "\\geometry{paperwidth=3000mm, paperheight=1300pt, left=40pt, top=40pt, textwidth=280pt, marginparsep=20pt, marginparwidth=100pt, textheight=16263pt, footskip=40pt}\n" +
+            "\\begin{document}\n" +
+            "\n" +
+            "\\begin{tikzpicture}";
 
     public AnalisadorLexico() {
 
@@ -43,7 +58,7 @@ public class AnalisadorLexico {
 
         setLinguagem();
 
-        reader = new BufferedReader(new FileReader("/home/romulo-eduardo/Documents/Ciência da Computação/Compiladores/Trabalho/Código/codigo2.txt"));
+        reader = new BufferedReader(new FileReader("codigo.txt"));
         line = reader.readLine();
 
         if(line!=null) {
@@ -54,7 +69,19 @@ public class AnalisadorLexico {
             System.out.println("ERRO: Arquivo vazio");
         }
 
+        try {
+            saida = new Formatter("arvore sintatica.tex");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
         geraArquivoArvore(arvoreTokens);
+
+        saida.format(print + "\n" + "\\end{tikzpicture}\n" +
+                "\n" +
+                "\n" +
+                "\\end{document}");
+        saida.close();
     }
 
     public NoToken funcao(Token token) throws IOException{
@@ -1235,20 +1262,20 @@ public class AnalisadorLexico {
 
             if(noToken.getToken()!=null){
 
-                System.out.print("[. "+noToken.getToken().getLexema());
+                print+="[. "+noToken.getToken().getLexema();
 
             }else{
 
                 if(noToken.getClasse().equals("<PROGRAMA>")){
 
-                    System.out.print("\\Tree [. "+noToken.getClasse()+"\n");
+                    print+="\\Tree [. "+noToken.getClasse()+"\n";
 
                 }else {
-                    System.out.print("[. " + noToken.getClasse() + "\n");
+                    print+="[. " + noToken.getClasse() + "\n";
                 }
             }
             geraArquivoArvore(noToken.getFilho());
-            System.out.print(" ]");
+            print+=" ]";
             geraArquivoArvore(noToken.getIrmao());
         }
     }
