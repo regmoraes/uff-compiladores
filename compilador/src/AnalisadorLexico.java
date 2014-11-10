@@ -3,6 +3,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import com.trolltech.qt.gui.*;
 
 /**
  * Created by romulo-eduardo on 9/21/14.
@@ -19,7 +20,7 @@ public class AnalisadorLexico {
     private final List<String> funcao = new ArrayList<String>();
     private final List<Character> numero = new ArrayList<Character>();
     private final List<String> bloco = new ArrayList<String>();
-    private final List<String> comando = new ArrayList<String>();
+    private final List<String> com = new ArrayList<String>();
     private final List<String> atribuicao = new ArrayList<String>();
     private final List<String> pontoVirgula = new ArrayList<String>();
     private final List<String> parenteses = new ArrayList<String>();
@@ -56,6 +57,73 @@ public class AnalisadorLexico {
         geraArquivoArvore(arvoreTokens);
     }
 
+    public NoToken funcao(Token token) throws IOException{
+
+        NoToken root = new NoToken("<FUNCAO>",linhaCodigo,null,null);
+
+        root.setFilho(nomeFuncao(token));
+        root.getFilho().setIrmao(blocoFuncao(t));
+
+        return root;
+    }
+
+    public NoToken funcoes(Token token) throws IOException{
+
+        NoToken root = new NoToken("<FUNCOES>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Tipo") || token.getClasse().equals("Identificador")){
+
+            root.setFilho(funcao(token));
+            root.getFilho().setIrmao(funcoes(t));
+        }
+
+        return root;
+    }
+
+    public NoToken nomeFuncao(Token token) throws IOException {
+
+        NoToken root = new NoToken("<NOME\\_FUNCAO>",linhaCodigo,null,null);
+
+        root.setFilho(tipoDado(token));
+
+        root.getFilho().setIrmao(identificador(t));
+
+        if(t.getLexema().equals("(")){
+
+            root.getFilho().getIrmao().setIrmao(new NoToken(t,null,null));
+
+            t = getLexemas(line);
+
+            root.getFilho().getIrmao().getIrmao().setIrmao(variaveis(t));
+
+            if(t.getLexema().equals(")")){
+
+                root.getFilho().getIrmao().getIrmao().getIrmao().setIrmao(new NoToken(t,null,null));
+
+                t = getLexemas(line);
+
+            }else{
+
+                erro(")",linhaCodigo);
+            }
+
+        }else{
+            erro("(", linhaCodigo);
+        }
+
+        return root;
+    }
+
+    public NoToken blocoFuncao(Token token) throws IOException {
+
+        NoToken root = new NoToken("<BLOCO\\_FUNCAO>", linhaCodigo, null, null);
+
+        root.setFilho(defVar(token));
+        root.getFilho().setIrmao(bloco(t));
+
+        return root;
+    }
+
     public Token getLexemas(String linhaArquivo) throws IOException {
 
         List<Character> characterList = new ArrayList<Character>();
@@ -81,7 +149,7 @@ public class AnalisadorLexico {
                     } else {
 
                         if (linhaArquivo.charAt(i) == ':' && linhaArquivo.charAt(i+1) == '=') {
-                            i++;
+                            i += 2;
                             return geraToken(":=");
 
                         } else {
@@ -242,7 +310,7 @@ public class AnalisadorLexico {
 
             if (string.equals(rs)) {
 
-                return new Token("Função", rs, linhaCodigo);
+                return new Token("Funcao", rs, linhaCodigo);
             }
         }
 
@@ -312,12 +380,12 @@ public class AnalisadorLexico {
         bloco.add("begin");
         bloco.add("end");
 
-        comando.add("while");
-        comando.add("if");
-        comando.add("then");
-        comando.add("read");
-        comando.add("write");
-        comando.add("else");
+        com.add("while");
+        com.add("if");
+        com.add("then");
+        com.add("read");
+        com.add("write");
+        com.add("else");
 
         atribuicao.add(":=");
 
@@ -459,35 +527,33 @@ public class AnalisadorLexico {
 
             nt.setFilho(declaracoes(token));
 
-            // nt.getFilho().setIrmao(bloco(getLexemas(line)));
+            nt.getFilho().setIrmao(bloco(t));
 
         }else{
 
-            nt.setFilho(bloco(getLexemas(line)));
+            nt.setFilho(bloco(t));
         }
         return nt;
     }
 
     public NoToken bloco(Token token) throws IOException {
 
-        NoToken nt;
+        NoToken nt = new NoToken("<BLOCO>", linhaCodigo, null, null);
 
-        if(token.getClasse().equals("Bloco")){
+        if(token.getLexema().equals("begin")) {
 
-            nt = new NoToken("<BLOCO>", linhaCodigo, null, null);
+            nt.setFilho(new NoToken(token, null, null));
 
-            if(token.getLexema().equals("begin")){
+            t = getLexemas(line);
 
-            }
-            nt.setFilho(declaracoes(token));
-            //nt.getFilho().setIrmao(comandos(getLexemas(line)));
-
-            return nt;
+            nt.getFilho().setIrmao(comandos(t));
 
         }else{
 
-            return null;
+            nt.setFilho(comando(token));
         }
+
+        return nt;
     }
 
     public NoToken declaracoes(Token token) throws IOException {
@@ -497,6 +563,7 @@ public class AnalisadorLexico {
         nt.setFilho(defConst(token));
         nt.getFilho().setIrmao(defTipos(t));
         nt.getFilho().getIrmao().setIrmao(defVar(t));
+        nt.getFilho().getIrmao().getIrmao().setIrmao(defFunc(t));
 
         return nt;
     }
@@ -552,8 +619,26 @@ public class AnalisadorLexico {
 
             }else{
 
-                System.out.println("ERRO: ';' esperado na linha: "+linhaCodigo);
+                erro(";",linhaCodigo);
             }
+        }
+
+        return nt;
+    }
+
+    public NoToken defFunc(Token token) throws IOException {
+
+        NoToken nt = new NoToken("<DEF\\_FUNC>", linhaCodigo, null, null);
+
+        if(token.getLexema().equals("function")){
+
+            nt.setFilho(new NoToken(token,null,null));
+
+            t = getLexemas(line);
+
+            nt.getFilho().setIrmao(funcao(t));
+
+            nt.getFilho().getIrmao().setIrmao(funcoes(t));
         }
 
         return nt;
@@ -577,7 +662,7 @@ public class AnalisadorLexico {
 
         }else{
 
-            System.out.println("Erro: ':' esperado na linha: "+linhaCodigo);
+            erro(":",linhaCodigo);
         }
 
         return nt;
@@ -606,6 +691,157 @@ public class AnalisadorLexico {
         }
 
         return nt;
+    }
+
+    public NoToken valor(Token token) throws IOException{
+
+        NoToken root = new NoToken("<VALOR>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Identificador")){
+
+            root.setFilho(identificador(token));
+            root.getFilho().setIrmao(valor2(t));
+
+        }else if(token.getClasse().equals("Numero")){
+
+            root.setFilho(numero(token));
+            root.getFilho().setIrmao(expMatematica(t));
+
+        }
+
+        return root;
+    }
+
+    public NoToken valor2(Token token) throws IOException{
+
+        NoToken root = new NoToken("<VALOR\\_2>",linhaCodigo,null,null);
+
+        if(token.getLexema().equals("(")){
+
+
+            root.setFilho(new NoToken(token,null,null));
+
+            t = getLexemas(line);
+
+            root.getFilho().setIrmao(parametro(t));
+
+            if(t.getLexema().equals(")")){
+
+                root.getFilho().getIrmao().setIrmao(new NoToken(t,null,null));
+
+                t = getLexemas(line);
+
+            }else{
+
+                erro("(",linhaCodigo);
+            }
+
+        }else{
+
+            root.setFilho(indice(token));
+            root.getFilho().setIrmao(expMatematica(t));
+        }
+
+        return root;
+    }
+
+    public NoToken parametro(Token token) throws IOException{
+
+        NoToken root = new NoToken("<PARAMETRO>",linhaCodigo,null,null);
+
+        root.setFilho(nomeNumero(token));
+
+        root.getFilho().setIrmao(listaParam(t));
+
+        return root;
+    }
+
+    public NoToken listaParam(Token token) throws IOException{
+
+        NoToken root = new NoToken("<LISTA_PARAM>",linhaCodigo,null,null);
+
+        if(token.getLexema().equals(",")){
+
+            root.setFilho(new NoToken(",",linhaCodigo,null,null));
+
+            t = getLexemas(line);
+
+            root.getFilho().setIrmao(parametro(t));
+        }
+
+        return root;
+    }
+
+    public NoToken expMatematica(Token token) throws IOException{
+
+        NoToken root = new NoToken("<EXP\\_MATEMATICA>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Operador Matematico")){
+
+            root.setFilho(opMatematico(token));
+            root.getFilho().setIrmao(nomeNumero(t));
+            root.getFilho().getIrmao().setIrmao(expMatematica(t));
+        }
+
+        return root;
+    }
+
+    public NoToken expLogica(Token token) throws IOException{
+
+        NoToken root = new NoToken("<EXP\\_LOGICA>",linhaCodigo,null,null);
+
+        root.setFilho(nomeNumero(token));
+        root.getFilho().setIrmao(expMatematica(t));
+        root.getFilho().getIrmao().setIrmao(expLogica2(t));
+
+        return root;
+    }
+
+    public NoToken expLogica2(Token token) throws IOException{
+
+        NoToken root = new NoToken("<EXP\\_LOGICA\\_2>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Operador Logico")){
+
+            root.setFilho(opLogico(token));
+            root.getFilho().setIrmao(expLogica(t));
+        }
+
+        return root;
+    }
+
+    public NoToken opLogico(Token token) throws IOException{
+
+        NoToken root = new NoToken("<OP\\_LOGICO>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Operador Logico")){
+
+            root.setFilho(new NoToken(token,null,null));
+            t = getLexemas(line);
+
+        }else{
+
+            erro(token.getClasse(),token.getLinha());
+        }
+
+        return root;
+    }
+
+    public NoToken opMatematico(Token token) throws IOException{
+
+        NoToken root = new NoToken("<OP\\_MATEMATICO>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Operador Matematico")){
+
+            root.setFilho(new NoToken(token,null,null));
+            t = getLexemas(line);
+
+        }else{
+
+            erro(token.getClasse(),token.getLinha());
+        }
+
+        return root;
     }
 
     public NoToken listaId(Token token) throws IOException {
@@ -662,7 +898,7 @@ public class AnalisadorLexico {
 
                 } else {
 
-                    System.out.println("ERRO: ']' esperado na linha: " + linhaCodigo);
+                    erro("]",linhaCodigo);
                 }
 
             } else {
@@ -771,6 +1007,103 @@ public class AnalisadorLexico {
         return root;
     }
 
+    public NoToken comando(Token token) throws IOException {
+
+        NoToken nt = new NoToken("<COMANDO>", linhaCodigo, null, null);
+
+        if(token.getLexema().equals("while")) {
+
+            nt.setFilho(new NoToken(token, null, null));
+
+            t = getLexemas(line);
+
+            nt.getFilho().setIrmao(expLogica(t));
+            nt.getFilho().getIrmao().setIrmao(bloco(t));
+
+
+        }else if (token.getLexema().equals("if")){
+
+            nt.setFilho(new NoToken(token, null, null));
+
+            t = getLexemas(line);
+
+            nt.getFilho().setIrmao(expLogica(t));
+
+            if(t.getLexema().equals("then")){
+
+                nt.getFilho().getIrmao().setFilho(new NoToken(t, null, null));
+
+                t = getLexemas(line);
+
+                nt.getFilho().getIrmao().setFilho(new NoToken(t, null, null));
+
+            }else{
+
+                erro("then", linhaCodigo);
+            }
+
+
+        }else if(token.getLexema().equals("write")){
+
+            nt.setFilho(new NoToken(token, null, null));
+
+        }else if((token.getLexema().equals("read"))){
+
+            nt.setFilho(new NoToken(token, null, null));
+
+        }else{
+
+            nt.setFilho(nome(token));
+
+            if(t.getLexema().equals(":=")){
+
+                nt.getFilho().setIrmao(new NoToken(t,null,null));
+
+                t = getLexemas(line);
+
+                nt.getFilho().getIrmao().setIrmao(valor(t));
+
+            }else{
+
+                erro(":=",linhaCodigo);
+            }
+
+        }
+
+        return nt;
+    }
+
+    public NoToken comandos(Token token) throws IOException{
+
+        NoToken root = new NoToken("<COMANDOS>",linhaCodigo,null,null);
+
+        if(token.getClasse().equals("Comando") || token.getClasse().equals("Identificador")){
+
+            root.setFilho(comando(token));
+
+            if(t.getLexema().equals(";")){
+
+                root.getFilho().setIrmao(new NoToken(t, null, null));
+
+                t = getLexemas(line);
+
+                root.getFilho().getIrmao().setIrmao(comandos(t));
+
+            }else{
+
+                erro(";",linhaCodigo);
+            }
+
+        }else if(token.getLexema().equals("end")){
+
+            root.setFilho(new NoToken(token,null,null));
+
+            t = getLexemas(line);
+        }
+
+        return root;
+    }
+
     public NoToken constValor(Token token) throws IOException{
 
         NoToken nt = new NoToken("<CONST\\_VALOR>",linhaCodigo,null,null);
@@ -779,24 +1112,24 @@ public class AnalisadorLexico {
         return nt;
     }
 
-    public NoToken nomeNumero(Token token) throws IOException{
+    public NoToken nomeNumero(Token token) throws IOException {
 
-        NoToken nt = new NoToken("<NOME\\_NUMERO>",linhaCodigo,null,null);
+        NoToken nt = new NoToken("<NOME\\_NUMERO>", linhaCodigo, null, null);
 
-        nt.setFilho(numero(token));
+        if (token.getClasse().equals("Numero")){
 
-        if(nt.getFilho() == null){
+            nt.setFilho(numero(token));
+
+        }else if(token.getClasse().equals("Identificador")){
 
             nt.setFilho(nome(token));
 
-            if( nt.getFilho() == null) {
-
-                System.out.println("ERRO: <NOME> ou <NUMERO> esperado na linha " + linhaCodigo);
-                return null;
-            }else{
-                return nt;}
         }else{
-            return nt;}
+
+            erro("'Identificador' ou 'Número'",linhaCodigo);
+        }
+
+        return nt;
     }
 
     public NoToken nome(Token token) throws IOException{
@@ -872,32 +1205,28 @@ public class AnalisadorLexico {
 
     public NoToken indice(Token token) throws IOException{
 
+        NoToken root = new NoToken("<INDICE>",linhaCodigo,null,null);
+
         if(token.getLexema().equals("[")){
 
-            NoToken nt = new NoToken("<INDICE>",linhaCodigo,null,null);
-            nt.setFilho(new NoToken(token,null,null));
+            root.setFilho(new NoToken(token,null,null));
 
             t = getLexemas(line);
 
-            nt.getFilho().setIrmao(nomeNumero(t));
+            root.getFilho().setIrmao(nomeNumero(t));
 
             if(t.getLexema().equals("]")){
 
-                nt.getFilho().getIrmao().getIrmao().setIrmao(new NoToken(t,null,null));
+                root.getFilho().getIrmao().getIrmao().setIrmao(new NoToken(t,null,null));
                 t = getLexemas(line);
-                return nt;
 
             }else{
 
-                System.out.println("ERRO: ']' esperado");
-                return null;
+                erro("]", linhaCodigo);
             }
-
-        }else{
-
-            System.out.println("ERRO: '[' esperado");
-            return null;
         }
+
+        return root;
     }
 
     public void geraArquivoArvore(NoToken noToken){
@@ -922,5 +1251,11 @@ public class AnalisadorLexico {
             System.out.print(" ]");
             geraArquivoArvore(noToken.getIrmao());
         }
+    }
+
+    public void erro(String string, int linhaCodigo){
+
+        System.out.println("ERRO: " + string + " esperado na linha:" + linhaCodigo);
+
     }
 }
