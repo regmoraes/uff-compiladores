@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
-import com.trolltech.qt.gui.*;
 
 /**
  * Created by romulo-eduardo on 9/21/14.
