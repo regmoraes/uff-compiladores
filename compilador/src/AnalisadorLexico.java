@@ -1,7 +1,4 @@
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
@@ -69,7 +66,7 @@ public class AnalisadorLexico {
         }
 
         try {
-            saida = new Formatter("arvore sintatica.tex");
+            saida = new Formatter("arvoresintatica.tex");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -81,6 +78,22 @@ public class AnalisadorLexico {
                 "\n" +
                 "\\end{document}");
         saida.close();
+        String command = "pdflatex arvoresintatica.tex";
+        Process p = Runtime.getRuntime().exec(command);
+        try {
+            p.waitFor();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        command = "evince arvoresintatica.pdf";
+        p = Runtime.getRuntime().exec(command);
+        try {
+            p.waitFor();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public NoToken funcao(Token token) throws IOException{
@@ -574,9 +587,20 @@ public class AnalisadorLexico {
 
             nt.getFilho().setIrmao(comandos(t));
 
-        }else{
+        }
+        else{
 
             nt.setFilho(comando(token));
+
+            if(t.getLexema().equals(";")){
+
+                nt.getFilho().setIrmao(new NoToken(t,null,null));
+
+                t = getLexemas(line);
+            }
+            else{
+                erro(";", linhaCodigo);
+            }
         }
 
         return nt;
@@ -1057,11 +1081,11 @@ public class AnalisadorLexico {
 
             if(t.getLexema().equals("then")){
 
-                nt.getFilho().getIrmao().setFilho(new NoToken(t, null, null));
+                nt.getFilho().getIrmao().setIrmao(new NoToken(t, null, null));
 
                 t = getLexemas(line);
 
-                nt.getFilho().getIrmao().setFilho(new NoToken(t, null, null));
+                nt.getFilho().getIrmao().getIrmao().setIrmao(bloco(t));
 
             }else{
 
