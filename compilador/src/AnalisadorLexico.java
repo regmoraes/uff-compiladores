@@ -1,4 +1,7 @@
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Formatter;
 import java.util.List;
@@ -41,7 +44,7 @@ public class AnalisadorLexico {
             "\\usepackage{tikz-qtree}\n" +
             "\\usepackage[brazilian,portuguese]{babel}\n" +
             "\\usepackage{geometry}\n" +
-            "\\geometry{paperwidth=3000mm, paperheight=1300pt, left=40pt, top=40pt, textwidth=280pt, marginparsep=20pt, marginparwidth=100pt, textheight=16263pt, footskip=40pt}\n" +
+            "\\geometry{paperwidth=4000mm, paperheight=1000pt, left=40pt, top=40pt, textwidth=280pt, marginparsep=20pt, marginparwidth=100pt, textheight=16263pt, footskip=40pt}\n" +
             "\\begin{document}\n" +
             "\n" +
             "\\begin{tikzpicture}";
@@ -66,7 +69,7 @@ public class AnalisadorLexico {
         }
 
         try {
-            saida = new Formatter("arvoresintatica.tex");
+            saida = new Formatter("arvore sintatica.tex");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -78,6 +81,7 @@ public class AnalisadorLexico {
                 "\n" +
                 "\\end{document}");
         saida.close();
+        
         String command = "pdflatex arvoresintatica.tex";
         Process p = Runtime.getRuntime().exec(command);
         try {
@@ -143,11 +147,11 @@ public class AnalisadorLexico {
 
             }else{
 
-                erro(")",linhaCodigo);
+                erro(")",linhaCodigo,t.getLexema());
             }
 
         }else{
-            erro("(", linhaCodigo);
+            erro("(", linhaCodigo,t.getLexema());
         }
 
         return root;
@@ -163,72 +167,96 @@ public class AnalisadorLexico {
         return root;
     }
 
+    public NoToken senao(Token token) throws IOException{
+
+        NoToken root = new NoToken("<SENAO>",linhaCodigo,null,null);
+
+        if(token.getLexema().equals("else")){
+
+            root.setFilho(new NoToken(token,null,null));
+
+            t = getLexemas(line);
+
+            root.getFilho().setIrmao(bloco(t));
+        }
+
+        return root;
+    }
+
     public Token getLexemas(String linhaArquivo) throws IOException {
 
         List<Character> characterList = new ArrayList<Character>();
 
-        while (i < linhaArquivo.length() && line !=null) {
+        if(linhaArquivo == null) {
 
-            if (linhaArquivo.charAt(i) != 32 && linhaArquivo.charAt(i) != 9) {
+            System.out.println("Compilação Terminada com Sucesso");
+            System.exit(0);
+            return null;
 
-                if ((linhaArquivo.charAt(i) >= 48 && linhaArquivo.charAt(i) <= 57)
-                        || (linhaArquivo.charAt(i) >= 65 && linhaArquivo.charAt(i) <= 90)
-                        || (linhaArquivo.charAt(i) >= 97 && linhaArquivo.charAt(i) <= 122)) {
+        }else {
 
-                    characterList.add(linhaArquivo.charAt(i));
-                    i++;
+            while (i < linhaArquivo.length() && line != null) {
 
-                } else {
+                if (linhaArquivo.charAt(i) != 32 && linhaArquivo.charAt(i) != 9) {
 
-                    if (characterList.size() != 0) {
+                    if ((linhaArquivo.charAt(i) >= 48 && linhaArquivo.charAt(i) <= 57)
+                            || (linhaArquivo.charAt(i) >= 65 && linhaArquivo.charAt(i) <= 90)
+                            || (linhaArquivo.charAt(i) >= 97 && linhaArquivo.charAt(i) <= 122)) {
 
-                        String lexema = converterParaString(characterList);
-                        return geraToken(lexema);
+                        characterList.add(linhaArquivo.charAt(i));
+                        i++;
 
                     } else {
 
-                        if (linhaArquivo.charAt(i) == ':' && linhaArquivo.charAt(i+1) == '=') {
-                            i += 2;
-                            return geraToken(":=");
+                        if (characterList.size() != 0) {
+
+                            String lexema = converterParaString(characterList);
+                            return geraToken(lexema);
 
                         } else {
-                            for(Character c : delimitadores) {
-                                if(linhaArquivo.charAt(i) == c) {
 
-                                    characterList.add(linhaArquivo.charAt(i));
-                                    i++;
-                                    return geraToken(converterParaString(characterList));
+                            if (linhaArquivo.charAt(i) == ':' && linhaArquivo.charAt(i + 1) == '=') {
+                                i += 2;
+                                return geraToken(":=");
+
+                            } else {
+                                for (Character c : delimitadores) {
+                                    if (linhaArquivo.charAt(i) == c) {
+
+                                        characterList.add(linhaArquivo.charAt(i));
+                                        i++;
+                                        return geraToken(converterParaString(characterList));
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }else {
+                } else {
 
-                i++;
-                if(characterList.size()!=0) {
+                    i++;
+                    if (characterList.size() != 0) {
 
-                    return geraToken(converterParaString(characterList));
+                        return geraToken(converterParaString(characterList));
 
-                }else{
+                    } else {
 
-                    return getLexemas(line);
+                        return getLexemas(line);
+                    }
                 }
             }
+            i = 0;
+            line = reader.readLine();
+            linhaCodigo++;
+
+            if (characterList.size() != 0) {
+
+                return geraToken(converterParaString(characterList));
+
+            } else {
+
+                return getLexemas(line);
+            }
         }
-
-        i=0;
-        line = reader.readLine();
-        linhaCodigo++;
-        if(characterList.size()!=0){
-
-            return geraToken(converterParaString(characterList));
-
-        }else{
-
-            return getLexemas(line);
-        }
-
     }
 
     String converterParaString(List<Character> characterList) {
@@ -421,10 +449,10 @@ public class AnalisadorLexico {
 
         com.add("while");
         com.add("if");
-        com.add("then");
+        //com.add("then");
         com.add("read");
         com.add("write");
-        com.add("else");
+        //com.add("else");
 
         atribuicao.add(":=");
 
@@ -587,19 +615,19 @@ public class AnalisadorLexico {
 
             nt.getFilho().setIrmao(comandos(t));
 
-        }
-        else{
+        }else{
 
             nt.setFilho(comando(token));
 
             if(t.getLexema().equals(";")){
 
-                nt.getFilho().setIrmao(new NoToken(t,null,null));
+                nt.getFilho().setIrmao(new NoToken(t, null, null));
 
                 t = getLexemas(line);
             }
             else{
-                erro(";", linhaCodigo);
+
+                erro(";",linhaCodigo,t.getLexema());
             }
         }
 
@@ -669,7 +697,7 @@ public class AnalisadorLexico {
 
             }else{
 
-                erro(";",linhaCodigo);
+                erro(";",linhaCodigo,t.getLexema());
             }
         }
 
@@ -712,7 +740,7 @@ public class AnalisadorLexico {
 
         }else{
 
-            erro(":",linhaCodigo);
+            erro(":",linhaCodigo,t.getLexema());
         }
 
         return nt;
@@ -768,7 +796,6 @@ public class AnalisadorLexico {
 
         if(token.getLexema().equals("(")){
 
-
             root.setFilho(new NoToken(token,null,null));
 
             t = getLexemas(line);
@@ -783,7 +810,7 @@ public class AnalisadorLexico {
 
             }else{
 
-                erro("(",linhaCodigo);
+                erro(")",linhaCodigo,t.getLexema());
             }
 
         }else{
@@ -871,7 +898,7 @@ public class AnalisadorLexico {
 
         }else{
 
-            erro(token.getClasse(),token.getLinha());
+            erro("Classe <OP_LOGICO>",token.getLinha(),t.getClasse());
         }
 
         return root;
@@ -888,7 +915,7 @@ public class AnalisadorLexico {
 
         }else{
 
-            erro(token.getClasse(),token.getLinha());
+            erro("Classe <OP_MATEMATICO>",token.getLinha(),t.getClasse());
         }
 
         return root;
@@ -948,7 +975,7 @@ public class AnalisadorLexico {
 
                 } else {
 
-                    erro("]",linhaCodigo);
+                    erro("]",linhaCodigo,t.getLexema());
                 }
 
             } else {
@@ -1010,12 +1037,14 @@ public class AnalisadorLexico {
     public NoToken constante(Token token) throws IOException {
 
         NoToken root = new NoToken("<CONSTANTE>",linhaCodigo,null,null);
+
         root.setFilho(identificador(token));
 
         if(root.getFilho()!=null) {
             if(t.getLexema().equals("=")){
 
                 root.getFilho().setIrmao(new NoToken(t,null,null));
+
                 t = getLexemas(line);
 
                 root.getFilho().getIrmao().setIrmao(constValor(t));
@@ -1050,7 +1079,7 @@ public class AnalisadorLexico {
             }
             else{
 
-                System.out.println("ERRO: ';' esperado na linha: "+linhaCodigo);
+                erro(";",linhaCodigo,t.getLexema());
             }
         }
 
@@ -1071,7 +1100,7 @@ public class AnalisadorLexico {
             nt.getFilho().getIrmao().setIrmao(bloco(t));
 
 
-        }else if (token.getLexema().equals("if")){
+        }else if(token.getLexema().equals("if")){
 
             nt.setFilho(new NoToken(token, null, null));
 
@@ -1087,19 +1116,28 @@ public class AnalisadorLexico {
 
                 nt.getFilho().getIrmao().getIrmao().setIrmao(bloco(t));
 
+                nt.getFilho().getIrmao().getIrmao().getIrmao().setIrmao(senao(t));
+
             }else{
 
-                erro("then", linhaCodigo);
+                erro("then", linhaCodigo,t.getLexema());
             }
-
 
         }else if(token.getLexema().equals("write")){
 
             nt.setFilho(new NoToken(token, null, null));
 
+            t = getLexemas(line);
+
+            nt.getFilho().setIrmao(constValor(t));
+
         }else if((token.getLexema().equals("read"))){
 
             nt.setFilho(new NoToken(token, null, null));
+
+            t = getLexemas(line);
+
+            nt.getFilho().setIrmao(nome(t));
 
         }else{
 
@@ -1115,9 +1153,8 @@ public class AnalisadorLexico {
 
             }else{
 
-                erro(":=",linhaCodigo);
+                erro(":=",linhaCodigo,t.getLexema());
             }
-
         }
 
         return nt;
@@ -1141,7 +1178,7 @@ public class AnalisadorLexico {
 
             }else{
 
-                erro(";",linhaCodigo);
+                erro(";",linhaCodigo,t.getLexema());
             }
 
         }else if(token.getLexema().equals("end")){
@@ -1157,6 +1194,7 @@ public class AnalisadorLexico {
     public NoToken constValor(Token token) throws IOException{
 
         NoToken nt = new NoToken("<CONST\\_VALOR>",linhaCodigo,null,null);
+
         nt.setFilho(nomeNumero(token));
 
         return nt;
@@ -1176,7 +1214,7 @@ public class AnalisadorLexico {
 
         }else{
 
-            erro("'Identificador' ou 'Número'",linhaCodigo);
+            erro("'Identificador' ou 'Número'",linhaCodigo,t.getClasse());
         }
 
         return nt;
@@ -1267,12 +1305,12 @@ public class AnalisadorLexico {
 
             if(t.getLexema().equals("]")){
 
-                root.getFilho().getIrmao().getIrmao().setIrmao(new NoToken(t,null,null));
+                root.getFilho().getIrmao().setIrmao(new NoToken(t, null, null));
                 t = getLexemas(line);
 
             }else{
 
-                erro("]", linhaCodigo);
+                erro("]", linhaCodigo,t.getLexema());
             }
         }
 
@@ -1303,9 +1341,10 @@ public class AnalisadorLexico {
         }
     }
 
-    public void erro(String string, int linhaCodigo){
+    public void erro(String string, int linhaCodigo, String token){
 
         System.out.println("ERRO: " + string + " esperado na linha:" + linhaCodigo);
+        System.out.println("      " + token + " encontrado");
 
     }
 }
